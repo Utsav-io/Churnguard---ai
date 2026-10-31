@@ -136,4 +136,7 @@ MIT. See [LICENSE](LICENSE).
 
 ## Author
 
-Utsav Pathak, MBA Marketing student. Built as a portfolio project on SaaS growth and revenue operations automation.
+Utsav Pathak,[LinkedIn](https://linkedin.com/in/utsav--pathak) 
+MBA Marketing student. Built as a portfolio project on SaaS growth and revenue operations automation.
+
+
