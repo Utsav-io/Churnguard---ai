@@ -1,0 +1,285 @@
+{
+  "name": "ChurnGuardAI",
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "62972a02-0d07-485c-a91e-49f97bfa3df7",
+      "name": "When clicking ‘Execute workflow’"
+    },
+    {
+      "parameters": {
+        "jsCode": "const accounts = [\n  // At-risk accounts\n  {company:\"Acme Corp\", contact_name:\"Riya Sharma\", plan:\"Pro\", seat_limit:20, seats_used:8, logins_last_7d:1, logins_prev_7d:9, features_used_30d:2, days_since_teammate_invite:45, support_tickets_30d:4, csat_last_ticket:2},\n  {company:\"BrightPath\", contact_name:\"Arjun Mehta\", plan:\"Starter\", seat_limit:10, seats_used:3, logins_last_7d:0, logins_prev_7d:7, features_used_30d:1, days_since_teammate_invite:60, support_tickets_30d:3, csat_last_ticket:1},\n  {company:\"Nimbus Labs\", contact_name:\"Sara Khan\", plan:\"Pro\", seat_limit:25, seats_used:10, logins_last_7d:2, logins_prev_7d:10, features_used_30d:3, days_since_teammate_invite:38, support_tickets_30d:5, csat_last_ticket:2},\n  // Power users\n  {company:\"Zenith Retail\", contact_name:\"Kabir Rao\", plan:\"Business\", seat_limit:50, seats_used:49, logins_last_7d:38, logins_prev_7d:30, features_used_30d:14, days_since_teammate_invite:3, support_tickets_30d:0, csat_last_ticket:5},\n  {company:\"Orbit Studio\", contact_name:\"Neha Iyer\", plan:\"Pro\", seat_limit:15, seats_used:15, logins_last_7d:32, logins_prev_7d:25, features_used_30d:12, days_since_teammate_invite:5, support_tickets_30d:1, csat_last_ticket:5},\n  {company:\"Pixel Forge\", contact_name:\"Dev Patel\", plan:\"Business\", seat_limit:40, seats_used:38, logins_last_7d:41, logins_prev_7d:33, features_used_30d:15, days_since_teammate_invite:2, support_tickets_30d:0, csat_last_ticket:4},\n  // Average accounts\n  {company:\"Greenleaf Co\", contact_name:\"Maya Nair\", plan:\"Pro\", seat_limit:20, seats_used:12, logins_last_7d:14, logins_prev_7d:13, features_used_30d:7, days_since_teammate_invite:14, support_tickets_30d:1, csat_last_ticket:4},\n  {company:\"Skyline Foods\", contact_name:\"Ravi Menon\", plan:\"Starter\", seat_limit:10, seats_used:6, logins_last_7d:9, logins_prev_7d:8, features_used_30d:5, days_since_teammate_invite:20, support_tickets_30d:2, csat_last_ticket:3},\n  {company:\"Tidewater Inc\", contact_name:\"Anita Das\", plan:\"Pro\", seat_limit:25, seats_used:14, logins_last_7d:11, logins_prev_7d:12, features_used_30d:6, days_since_teammate_invite:16, support_tickets_30d:1, csat_last_ticket:4}\n];\n\nreturn accounts.map(a => ({ json: { ...a, contact_email: \"unlockedmba@gmail.com\" } }));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        448,
+        0
+      ],
+      "id": "fda45264-7b43-4a02-b973-2ca6646b39af",
+      "name": "Mock Data"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "models/gemini-3.5-flash-lite",
+          "mode": "list",
+          "cachedResultName": "Gemini 3.5 Flash Lite"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "=You are a SaaS Customer Success analyst. Score this account's health from 0 to 100.\n\nScoring guide:\n- Below 50 = churn risk (falling logins, low feature use, no teammate invites, many support tickets, low CSAT)\n- 50 to 85 = healthy and stable\n- Above 85 = expansion ready (seats nearly full, high and rising logins, broad feature use)\n\nAccount data:\nCompany: {{ $json.company }}\nPlan: {{ $json.plan }}\nSeats used: {{ $json.seats_used }} of {{ $json.seat_limit }}\nLogins last 7 days: {{ $json.logins_last_7d }} (previous 7 days: {{ $json.logins_prev_7d }})\nFeatures used in last 30 days: {{ $json.features_used_30d }}\nDays since last teammate invite: {{ $json.days_since_teammate_invite }}\nSupport tickets in last 30 days: {{ $json.support_tickets_30d }}\nLast CSAT (1-5): {{ $json.csat_last_ticket }}\n\nRespond ONLY with valid JSON, no extra text, in exactly this format:\n{\"score\": 0, \"risk_summary\": \"2 sentences\", \"retention_playbook\": \"3 short bullet actions for the CS team\", \"upsell_angle\": \"1 sentence pitch angle, or empty string if not expansion ready\"}"
+            }
+          ]
+        },
+        "jsonOutput": true,
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.googleGemini",
+      "typeVersion": 1.2,
+      "position": [
+        672,
+        0
+      ],
+      "id": "cb50ae86-6d70-4f10-ab67-3c55eb245bf6",
+      "name": "Message a model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "vqS2RnWux8bU72wy",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const j = $json;\n\nconst raw =\n  j.content?.parts?.[0]?.text ||\n  j.candidates?.[0]?.content?.parts?.[0]?.text ||\n  j.output ||\n  j.text ||\n  \"{}\";\n\nlet ai;\ntry {\n  const text = typeof raw === \"string\" ? raw : JSON.stringify(raw);\n  ai = JSON.parse(text.replace(/json|/g, \"\").trim());\n} catch (e) {\n  ai = { score: 60, risk_summary: \"Parse error\", retention_playbook: \"\", upsell_angle: \"\" };\n}\n\nconst row = $('Mock Data').item.json;\n\nreturn { json: { ...row, ...ai, score: Number(ai.score) } };"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1040,
+        0
+      ],
+      "id": "8c87410a-b9f6-461d-9f4d-0fb0ddcbb935",
+      "name": "Parse AI"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 4
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.score }}",
+                    "rightValue": 50,
+                    "operator": {
+                      "type": "number",
+                      "operation": "lt"
+                    },
+                    "id": "fe005092-a5ab-443d-84eb-4df41a614f3e"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Churn Risk"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 4
+                },
+                "conditions": [
+                  {
+                    "id": "bd88cc92-ff0b-407a-8145-6aefed8a6e63",
+                    "leftValue": "={{ $json.score }}",
+                    "rightValue": 85,
+                    "operator": {
+                      "type": "number",
+                      "operation": "gt"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Expansion"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.5,
+      "position": [
+        1264,
+        0
+      ],
+      "id": "4fdf7ae9-187e-4cb0-a2f3-a20d002edb16",
+      "name": "Switch"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "f301a93f-44ac-4672-a280-41a98754231a",
+              "name": "Alert_messages",
+              "value": "=🚨 At-risk account: {{ $json.company }} (score {{ $json.score }}). Why: {{ $json.risk_summary }} Playbook: {{ $json.retention_playbook }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        1488,
+        -96
+      ],
+      "id": "34192a85-34ca-4171-a3fe-f67719afe92e",
+      "name": "Churn alert"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "73f1f402-d08e-4c24-ae4d-dfb1e822d55b",
+              "name": "Alert_messages",
+              "value": "=💰 Upsell opportunity: {{ $json.company }} (score {{ $json.score }}). Seats {{ $json.seats_used }}/{{ $json.seat_limit }} on {{ $json.plan }}. Pitch: {{ $json.upsell_angle }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        1488,
+        96
+      ],
+      "id": "78c22e2a-2f08-42be-aa8e-1bef10ff6a70",
+      "name": "Upsell alert"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 9
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        224,
+        0
+      ],
+      "id": "5a7288e6-cba7-4961-8a82-0dc0c81a898a",
+      "name": "Schedule Trigger"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "When clicking ‘Execute workflow’": {
+      "main": [
+        [
+          {
+            "node": "Mock Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mock Data": {
+      "main": [
+        [
+          {
+            "node": "Message a model",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Message a model": {
+      "main": [
+        [
+          {
+            "node": "Parse AI",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse AI": {
+      "main": [
+        [
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch": {
+      "main": [
+        [
+          {
+            "node": "Churn alert",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Upsell alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "b03e693c-546b-4b85-8e4e-d63ffce76c13",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "82ebab087802ae91ba365334a856c7b31baaf5ae8126330ca2e193595211e6b2"
+  },
+  "nodeGroups": [],
+  "id": "auaX1IbELIGa3sMp",
+  "tags": []
+}
